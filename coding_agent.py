@@ -3,6 +3,7 @@ from autogen.coding.local_commandline_code_executor import LocalCommandLineCodeE
 
 from config import LLM_CONFIG
 
+
 def after_execution(agent, execution_result):
     if execution_result.get('success'):
         output = execution_result.get('output', '')
@@ -13,6 +14,7 @@ def after_execution(agent, execution_result):
         error_output = execution_result.get('output', 'No output available.')
         agent.send_message(f"There was an error executing the code:\n```\n{error_output}\n```")
         agent.send_message("Please debug the code and provide a corrected version.")
+
 
 def create_coding_agent() -> AssistantAgent:
     agent = AssistantAgent(
@@ -43,8 +45,7 @@ def create_user_proxy():
     user_proxy = AssistantAgent(
         name="User",
         llm_config=False,
-        is_termination_msg=lambda msg: msg.get("content") and "TERMINATE" in msg["content"],
-        human_input_mode="NEVER",
+        human_input_mode="ALWAYS",
     )
     return user_proxy
 
@@ -53,15 +54,10 @@ def main():
     user_proxy = create_user_proxy()
     coding_agent = create_coding_agent()
 
-    # Prompt the user for input
-    message = ""
-    while not message.strip():
-        message = input("Please enter your question or task for the assistant:\n")
-
+    # Start the conversation
     chat_result = user_proxy.initiate_chat(
         coding_agent,
         cache=None,
-        message=message
     )
     print(chat_result)
 
