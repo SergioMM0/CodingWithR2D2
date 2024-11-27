@@ -1,11 +1,10 @@
-import asyncio
 from typing import Optional
 
 from autogen import AssistantAgent
 from autogen.coding.local_commandline_code_executor import LocalCommandLineCodeExecutor
 from autogen import UserProxyAgent
 
-from config import LLM_CONFIG  # Assuming you have LLM_CONFIG in config.py
+from config import LLM_CONFIG
 
 
 def after_execution(agent, execution_result):
@@ -33,7 +32,7 @@ async def execute_code_block(message_content: str) -> Optional[str]:
         return "No code block found in the message."
 
     try:
-        # Execute code asynchronously
+        # Execute code asynchronously (using asyncio.subprocess.create_subprocess_exec) 
         process = await asyncio.create_subprocess_exec(
             "python", "-c", code_block[0],
             stdout=asyncio.subprocess.PIPE,
@@ -75,7 +74,7 @@ def create_coding_agent() -> AssistantAgent:
             "You can interpret user prompts, generate Python code, execute it, "
             "and assist with debugging or enhancements as needed. "
             "Provide clear, detailed explanations of your actions."
-            "Display the code code you generate in a single code block in your answer."
+            "Display the code you generate in a single code block in your answer."
             "Don't generate markdown code, only for code you provide and only once"
             "and return 'TERMINATE' when the task is done."
         ),
@@ -104,17 +103,16 @@ def create_user_proxy():
     return user_proxy
 
 
-async def main():  # Make main asynchronous
+def main():
     user_proxy = create_user_proxy()
     coding_agent = create_coding_agent()
 
     # Start the conversation
-    chat_result = await user_proxy.initiate_chat(  # Await the result
+    chat_result = user_proxy.initiate_chat(
         coding_agent,
         cache=None,
     )
     print(chat_result)
 
-
 if __name__ == "__main__":
-    asyncio.run(main())  # Run the main function in an event loop
+    main()
