@@ -1,5 +1,6 @@
 from autogen import AssistantAgent
 from autogen.coding.local_commandline_code_executor import LocalCommandLineCodeExecutor
+from autogen import UserProxyAgent
 
 from config import LLM_CONFIG
 
@@ -16,6 +17,22 @@ def after_execution(agent, execution_result):
         agent.send_message("Please debug the code and provide a corrected version.")
 
 
+def execute_code_block(message_content: str) -> str:
+    """
+    Extract and execute Python code from the given message content.
+    :param message_content: The content of the message to process.
+    :return: Execution result or None if no code block is found.
+    """
+    executor = LocalCommandLineCodeExecutor(work_dir="coding")
+    code_block = executor.code_extractor.extract_code_blocks(message_content)
+    if code_block:
+        try:
+            result = executor.execute_code_blocks(code_block)
+            return result
+        except Exception as e:
+            return str(e)
+    return None
+
 def create_coding_agent() -> AssistantAgent:
     agent = AssistantAgent(
         name="Coding Agent",
@@ -28,11 +45,11 @@ def create_coding_agent() -> AssistantAgent:
             "and return 'TERMINATE' when the task is done."
         ),
         llm_config=LLM_CONFIG,
-        code_execution_config={
-            "allow_code_execution": True,
-            "executor": LocalCommandLineCodeExecutor(work_dir="coding"),
-            "max_output_length": 1000,
-        },
+        #code_execution_config={
+        #    "allow_code_execution": True,
+        #    "executor": LocalCommandLineCodeExecutor(work_dir="coding"),
+        #    "max_output_length": 1000,
+        #},
     )
 
     # Set the after_execution callback
@@ -42,11 +59,17 @@ def create_coding_agent() -> AssistantAgent:
 
 
 def create_user_proxy():
-    user_proxy = AssistantAgent(
+    user_proxy = UserProxyAgent(
         name="User",
         llm_config=False,
-        human_input_mode="ALWAYS",
+        human_input_mode="NEVER",
+        code_execution_config={
+            "executor": LocalCommandLineCodeExecutor(work_dir="coding"),
+        }
     )
+
+    user_proxy.register_for_execution(name="execute_python")(execute_code_block)
+
     return user_proxy
 
 
