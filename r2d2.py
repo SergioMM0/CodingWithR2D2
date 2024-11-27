@@ -1,8 +1,11 @@
+import asyncio
+from typing import Optional
+
 from autogen import AssistantAgent
 from autogen.coding.local_commandline_code_executor import LocalCommandLineCodeExecutor
 from autogen import UserProxyAgent
 
-from config import LLM_CONFIG
+from config import LLM_CONFIG  # Assuming you have LLM_CONFIG in config.py
 
 
 def after_execution(agent, execution_result):
@@ -17,21 +20,51 @@ def after_execution(agent, execution_result):
         agent.send_message("Please debug the code and provide a corrected version.")
 
 
-def execute_code_block(message_content: str) -> str:
+async def execute_code_block(message_content: str) -> Optional[str]:
     """
-    Extract and execute Python code from the user's request.
+    Extract and execute Python code from the user's request asynchronously.
     :param message_content: The content of the user's message.
-    :return: Execution result or error message.
+    :return: Execution result or error message, or None if no code block is found.
     """
     executor = LocalCommandLineCodeExecutor(work_dir="coding")
     code_block = executor.code_extractor.extract_code_blocks(message_content)
-    if code_block:
-        try:
-            result = executor.execute_code_blocks(code_block)
-            return result
-        except Exception as e:
-            return str(e)
-    return None
+
+    if not code_block:
+        return "No code block found in the message."
+
+    try:
+        # Execute code asynchronously
+        process = await asyncio.create_subprocess_exec(
+            "python", "-c", code_block[0],
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        stdout, stderr = await process.communicate()
+
+        if stderr:
+            return f"Error executing code: {stderr.decode()}"
+        else:
+            return stdout.decode()
+
+    except SyntaxError as e:
+        return f"Syntax error in code: {e}"
+    except NameError as e:
+        return f"Name error in code: {e}"
+    except IndexError as e:
+        return f"Index error in code: {e}"
+    except TypeError as e:
+        return f"Type error in code: {e}"
+    except ZeroDivisionError as e:
+        return f"Division by zero error in code: {e}"
+    except Exception as e:  # Catch other unexpected errors
+        return f"An unexpected error occurred: {e}"
+
+
+def execute_code_block_sync(message_content: str) -> Optional[str]:
+    """
+    Synchronous wrapper for execute_code_block.
+    """
+    return asyncio.run(execute_code_block(message_content))
 
 
 def create_coding_agent() -> AssistantAgent:
@@ -47,11 +80,6 @@ def create_coding_agent() -> AssistantAgent:
             "and return 'TERMINATE' when the task is done."
         ),
         llm_config=LLM_CONFIG,
-        # code_execution_config={
-        #    "allow_code_execution": True,
-        #    "executor": LocalCommandLineCodeExecutor(work_dir="coding"),
-        #    "max_output_length": 1000,
-        # },
     )
 
     # Set the after_execution callback
@@ -70,17 +98,18 @@ def create_user_proxy():
         }
     )
 
-    user_proxy.register_for_execution(name="execute_python")(execute_code_block)
+    # Register the synchronous wrapper function
+    user_proxy.register_for_execution(name="execute_python")(execute_code_block_sync)
 
     return user_proxy
 
 
-def main():
+async def main():  # Make main asynchronous
     user_proxy = create_user_proxy()
     coding_agent = create_coding_agent()
 
     # Start the conversation
-    chat_result = user_proxy.initiate_chat(
+    chat_result = await user_proxy.initiate_chat(  # Await the result
         coding_agent,
         cache=None,
     )
@@ -88,4 +117,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())  # Run the main function in an event loop

@@ -1,5 +1,6 @@
 LLM_CONFIG = {
-    "model": "llama3.1:8b",
+    #"model": "llama3.1:8b",
+    "model": "llama3.2:latest",
     "client_host": "127.0.0.1:11434",
     "api_type": "ollama",
     "num_predict": -2,
