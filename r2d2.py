@@ -19,9 +19,9 @@ def after_execution(agent, execution_result):
 
 def execute_code_block(message_content: str) -> str:
     """
-    Extract and execute Python code from the given message content.
-    :param message_content: The content of the message to process.
-    :return: Execution result or None if no code block is found.
+    Extract and execute Python code from the user's request.
+    :param message_content: The content of the user's message.
+    :return: Execution result or error message.
     """
     executor = LocalCommandLineCodeExecutor(work_dir="coding")
     code_block = executor.code_extractor.extract_code_blocks(message_content)
@@ -33,23 +33,25 @@ def execute_code_block(message_content: str) -> str:
             return str(e)
     return None
 
+
 def create_coding_agent() -> AssistantAgent:
     agent = AssistantAgent(
         name="Coding Agent",
         system_message=(
-            "You are a helpful AI assistant. "
-            "You can help with writing Python code, "
-            "verify the correctness of the code by executing it, "
-            "provide debugging assistance if there are errors, "
-            "display the output in a code block, "
+            "You are an advanced coding assistant. "
+            "You can interpret user prompts, generate Python code, execute it, "
+            "and assist with debugging or enhancements as needed. "
+            "Provide clear, detailed explanations of your actions."
+            "Display the code code you generate in a single code block in your answer."
+            "Don't generate markdown code, only for code you provide and only once"
             "and return 'TERMINATE' when the task is done."
         ),
         llm_config=LLM_CONFIG,
-        #code_execution_config={
+        # code_execution_config={
         #    "allow_code_execution": True,
         #    "executor": LocalCommandLineCodeExecutor(work_dir="coding"),
         #    "max_output_length": 1000,
-        #},
+        # },
     )
 
     # Set the after_execution callback
